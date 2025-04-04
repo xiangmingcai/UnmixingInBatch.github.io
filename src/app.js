@@ -1,7 +1,7 @@
 
 import FCS from '../node_modules/fcs/fcs.js';
 import Plotly from '../node_modules/plotly.js-dist';
-import { pinv,multiply,transpose,abs,sign,log10,add,dotMultiply,matrix,median,subtract,exp,sqrt,max } from '../node_modules/mathjs';
+import { pinv,multiply,transpose,abs,ceil,sign,log10,add,dotMultiply,matrix,median,subtract,exp,sqrt,max } from '../node_modules/mathjs';
 import seedrandom from '../node_modules/seedrandom';
 
 
@@ -184,8 +184,6 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                     // fcsColumnNames
                     const text = fcs.text;
                     let newText = { ...fcs.text };//for update
-                    const copyanalysis = fcs.analysis;
-                    const copyothers = fcs.others;
                     let columnNames = [];
                     //columnNames are stored in `$P${i}S` in Xenith
                     for (let i = 1; text[`$P${i}S`]; i++) {
@@ -226,10 +224,10 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                     let filteredfcsArrayforUnmix = filterFCSArrayByChannelNames(fcsArray, fcsColumnNames, ChannelNames);
                     const unmixedData = unmixing(filteredfcsArrayforUnmix,A_pinv);
                     
-                    const Par_range = max(unmixedData)
-                    const combinedData = fcsArray.map((row, index) => row.concat(unmixedData[index]));
+                    const Par_range = ceil(max(unmixedData))
+                    let combinedData = fcsArray.map((row, index) => row.concat(unmixedData[index]));
                     //update text
-                    const originalParameterCount =  filteredfcsArrayforUnmix[0].length;
+                    const originalParameterCount =  fcs.meta.$PAR;
                     filteredfcsArrayforUnmix = null
                     const newParameterCount = originalParameterCount + unmixedData[0].length;
                     newText['$PAR'] = newParameterCount.toString();
@@ -240,6 +238,13 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                         newText[`$P${i}B`] = '32';  //number of bits
                         newText[`$P${i}E`] = '0,0'; //Amplification type
                     }
+
+                    //test
+                    //newText = { ...fcs.text };
+                    //combinedData = fcsArray
+
+                    //test end
+
                     // 定义保留字段列表和正则表达式
                     const reservedFields = [
                         '$BEGINANALYSIS', '$BEGINDATA', '$BEGINSTEXT', '$BYTEORD', '$DATATYPE', 
@@ -252,7 +257,47 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                     Object.keys(newText).sort((a, b) => {
                         const aIsReserved = reservedFields.includes(a) || parameterFieldsRegex.test(a);
                         const bIsReserved = reservedFields.includes(b) || parameterFieldsRegex.test(b);
+                        // 如果a,b都是保留字段，则
+                        if (bIsReserved && aIsReserved) {
+                            if (a.startsWith('$P') && b.startsWith('$P')) {
+                                // 如果a是$PAR字段，则a排在前面
+                                if (a === '$PAR') {
+                                    return -1;
+                                }
+                                // 如果b是$PAR字段，则b排在前面
+                                if (b === '$PAR') {
+                                    return 1;
+                                }
+                                // 如果都是Pn,则按数字大小排序
+                                if (1) {
+                                    // 提取参数字段中的数字部分
+                                    const aNumber = parseInt(a.match(/\$P(\d+)/)[1], 10);
+                                    const bNumber = parseInt(b.match(/\$P(\d+)/)[1], 10);
+                                    // 如果数字部分相同，按字母顺序排序
+                                    if (aNumber === bNumber) {
+                                        return a.localeCompare(b);
+                                    }
+                                    // 按数字大小排序
+                                    return aNumber - bNumber;
+                                }
+                            }
+                        }
 
+                        // 如果a和b都是保留字段
+                        if (aIsReserved && bIsReserved) {
+                            // 如果a和b都是参数字段
+                            if (a.startsWith('$P') && b.startsWith('$P')) {
+                                // 提取参数字段中的数字部分
+                                const aNumber = parseInt(a.match(/\$P(\d+)/)[1], 10);
+                                const bNumber = parseInt(b.match(/\$P(\d+)/)[1], 10);
+
+                                // 按数字大小排序
+                                return aNumber - bNumber;
+                            }
+                            
+                            // 按字母顺序排序
+                            return a.localeCompare(b);
+                        }
                         // 如果a是保留字段且b不是，则a排在前面
                         if (aIsReserved && !bIsReserved) {
                             return -1;
@@ -269,31 +314,31 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                         if (!b.startsWith('#') && a.startsWith('#')) {
                             return 1;
                         }
+                        
                         // 否则按字母顺序排序
                         return a.localeCompare(b);
                     }).forEach(key => {
                         sortedText[key] = newText[key];
                     });
                     
-                    
-
-
                     // create new fcs file
                     let newFCSData = new FCS();
                     newFCSData.dataAsNumbers = combinedData
                     newFCSData.analysis = {}
                     newFCSData.text = sortedText
-
+                    console.log("newFCSData: ",newFCSData);
                     let file_name = `unmixed_${entry.name}`
                     writeFCSFile(newFCSData, SavedirectoryHandle,file_name)
 
-                    console.log(`Processed and saved: unmixed_${entry.name}`);
+                    console.log(`Processed and saved: tested_${entry.name}`);
 
                 }
+                
                 reader.readAsArrayBuffer(file);
 
             }
         }
+        save_log()
     }catch (error) {
         console.error('Error processing files:', error);
         customLog('Error processing files:', error);
@@ -315,24 +360,44 @@ async function writeFCSFile(fcsData, SavedirectoryHandle,file_name) {
     //    [7, 8, 9]
     //]; 
 
-   
-    // 将TEXT段转换为Buffer
-    const formated_text = formatTextSegment(fcsData)
-    const textBlob = Buffer.from(formated_text);
-
     // 将二维数组转换为二进制数据
     let data = fcsData.dataAsNumbers
-    let dataBlob
-    dataBlob = convert2DArrayToBinary(data);
+    let dataBlob = convert2DArrayToBinary(data);
     let totalDataLength = dataBlob.byteLength
     console.log(`总字节长度: ${totalDataLength}`);
+   
+    // create updated header
+    let formated_text = formatTextSegment(fcsData)
+    let updated_head = calculateHeader(formated_text,totalDataLength)
+    //update header in fcsData
+    fcsData.header = updated_head
+    let formated_head = formateHeader(updated_head)
+    //update header info in text
+    let header0string = formated_head
+    console.log("header0string before: ",header0string);
+    header0string = header0string.replace(/ /g, '0');
+    console.log("header0string after: ",header0string);
+    fcsData.text.$BEGINANALYSIS = "0000" + header0string.slice(42, 50);
+    fcsData.text.$BEGINDATA = "0000" + header0string.slice(26, 34);
+    fcsData.text.$BEGINSTEXT = "0000" + header0string.slice(10, 18);
+    fcsData.text.$ENDANALYSIS = "0000" + header0string.slice(50, 58);
+    fcsData.text.$ENDDATA = "0000" + header0string.slice(34, 42);
+    fcsData.text.$ENDSTEXT = "0000" + header0string.slice(18, 26);
+
+    //update formated_text
+    formated_text = formatTextSegment(fcsData)
+    // 将TEXT段转换为Buffer
+    let textBlob = Buffer.from(formated_text);
+
     // 将HEADER段转换为Buffer
-    const formated_head = calculateHeader(formated_text,totalDataLength)
-    const headerBlob = Buffer.from(formated_head);
+    updated_head = calculateHeader(formated_text,totalDataLength)
+    fcsData.header = updated_head
+    formated_head = formateHeader(updated_head)
+    let headerBlob = Buffer.from(formated_head);
 
     // 创建一个缓冲区来存储整个文件内容
     //const fileBuffer = Buffer.concat([headerBuffer, textBuffer, dataBuffer]);
-    const fileBlob = new Blob([headerBlob, textBlob, dataBlob], { type: 'application/octet-stream' });
+    let fileBlob = new Blob([headerBlob, textBlob, dataBlob], { type: 'application/octet-stream' });
 
 
     // 将缓冲区写入文件
@@ -342,7 +407,7 @@ async function writeFCSFile(fcsData, SavedirectoryHandle,file_name) {
     await writable.write(fileBlob);
     await writable.close();
 
-    save_log()
+    
     
 }
 
@@ -350,7 +415,6 @@ function convert2DArrayToBinary(data) {
     // 创建一个缓冲区数组来存储二进制数据
     let bufferArray = [];
     let totalLength = 0;
-
     // 遍历二维数组，将每个元素转换为二进制数据并添加到缓冲区数组
     data.forEach(row => {
         row.forEach(value => {
@@ -364,7 +428,7 @@ function convert2DArrayToBinary(data) {
 
     // 合并缓冲区数组
     const binaryData = Buffer.concat(bufferArray);
-
+    
     return binaryData;
 }
 
@@ -378,11 +442,9 @@ function formatTextSegment(fcsData) {
             formattedText += `*${key}*${text[key]}`;
         }
     }
-    formattedText += `*`
+    //formattedText += `*`;
     return formattedText;
 }
-
-
 
 function calculateHeader(formattedText,totalDataLength) {
     const header = {};
@@ -391,9 +453,11 @@ function calculateHeader(formattedText,totalDataLength) {
 
     const textStart = 58; // usually 
     const textEnd = textStart + formattedText.length - 1;
+    //const textEnd = textStart + formattedText.length;
 
     const dataStart = textEnd + 1;
     const dataEnd = dataStart + totalDataLength - 1; // 4个字节（32位）
+    //const dataEnd = dataStart + totalDataLength; 
 
     // header
     header.beginText = textStart.toString().padStart(8, ' ');
@@ -405,11 +469,13 @@ function calculateHeader(formattedText,totalDataLength) {
     header.beginAnalysis = '0'.padStart(8, ' ');
     header.endAnalysis = '0'.padStart(8, ' ');
 
-    return `${header.FCSVersion}${header.beginText}${header.endText}${header.beginData}${header.endData}${header.beginAnalysis}${header.endAnalysis}`;
+    return header;
 }
 
 
-
+function formateHeader(header){
+    return `${header.FCSVersion}${header.beginText}${header.endText}${header.beginData}${header.endData}${header.beginAnalysis}${header.endAnalysis}`
+}
 function filterFCSArrayByChannelNames(fcsArray, fcsColumnNames, ChannelNames) {
     // Create an array to store the indices of the columns to keep
     const indicesToKeep = ChannelNames.map(channel => fcsColumnNames.indexOf(channel)).filter(index => index !== -1);
