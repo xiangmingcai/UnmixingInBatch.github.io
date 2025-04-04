@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UnmixOptimizer</title>
+    <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+    <div class="basic-div">
+        <h1>Unmixing In Batch (UIB) (demo version)</h1>
+        <p>This website is designed to help users process unmixing in batch for flow cytometry analysis. </p>
+        <p>If you find this tool helpful, please remember to cite us in your work. <a href="https://github.com/xiangmingcai/UnmixingInBatch.github.io" target="_blank">View this project on GitHub</a></p>
+        <p>Enjoy! 😉</p>
+    </div>
+    <!-- Step 1 Inital setting and Import files -->
+    <!-- Select Data Folder and UnmixMatrix CSV file -->
+    <div class="basic-div">
+        <div>
+            <h2>Step 1 Setup</h2>
+            <!-- Select a data folder -->
+            <p>Select a data folder where you keep fcs files</p>
+            <button id="select-folder">Select Data Folder</button>
+            <p id="folder-name" class = "small-gray-text"></p>
+            <!-- Select a save folder -->
+            <p>Select a save folder to store unmixed fcs files and log</p>
+            <button id="select-save-folder">Select Save Folder</button>
+            <p id="save-folder-name" class = "small-gray-text"></p>
+
+            <!-- Select a UnmixMatrix File -->
+            <p>Select a UnmixMatrix File</p>
+            <input type="file" id="file-input" >
+            <p id="file-name" class = "small-gray-text"></p>
+            <!-- Read UnmixMatrix CSV file -->
+            <button id="read-csv">Read the UnmixMatrix CSV</button>
+
+            <button id="file-reading-button" >Read fcs file</button>
+        </div>
+
+        <div class = "table-container">
+            <div id="csv-table"></div>
+        </div>
+
+    </div>
+
+    <!-- Progress and log autosave -->
+    <div class="basic-div">
+        <h2>Progress</h2>
+        <div id="scc-file-setup-div" style="display:none;">
+            <!-- Progress -->
+            <p>Progress</p>
+            
+        </div>
+    </div>
+ 
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+
+    <footer>
+        <p>&copy; 2025 XiangmingCai. All rights reserved.</p>
+    </footer>
+    <script src="dist/bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    
+</body>
+</html>
