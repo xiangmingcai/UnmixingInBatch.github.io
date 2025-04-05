@@ -1,7 +1,7 @@
 
 import FCS from '../node_modules/fcs/fcs.js';
 import Plotly from '../node_modules/plotly.js-dist';
-import { pinv,multiply,transpose,abs,ceil,sign,log10,add,dotMultiply,matrix,median,subtract,exp,sqrt,max } from '../node_modules/mathjs';
+import { pinv,multiply,transpose,abs,ceil,sign,log10,add,dotMultiply,matrix,median,subtract,exp,sqrt,max, string } from '../node_modules/mathjs';
 import seedrandom from '../node_modules/seedrandom';
 import JSWriteFCS from '../node_modules/jswritefcs/JSWriteFCS.js';
 
@@ -100,7 +100,7 @@ document.getElementById('read-csv').addEventListener('click', async () => {
                 let twoDimArray = csvArray.map(obj => Object.values(obj));
                 A_Array = twoDimArray.map(row => row.slice(2).map(Number));//remove first two columns (primary and secondary labels)
                 A_Array = transpose(A_Array);
-                customLog('A_Array:', A_Array);
+                //customLog('A_Array:', A_Array);
 
                 PSValueList = csvArray.map(row => {
                     const primaryValue = row[Object.keys(row)[0]];
@@ -115,7 +115,7 @@ document.getElementById('read-csv').addEventListener('click', async () => {
         
         //calculate pinv matrix
         A_pinv = pinv(A_Array);
-        customLog('A_pinv:', A_pinv);
+        //customLog('A_pinv:', A_pinv);
         
     } catch (error) {
         console.error('Error reading CSV file:', error);
@@ -152,8 +152,6 @@ function displayCSVTable(data) {
     document.getElementById('csv-table').appendChild(table);
 }
 
-
-
 // Read selected scc fcs file
 document.getElementById('file-reading-button').addEventListener('click', async () => {
     if (!directoryHandle || !SavedirectoryHandle) {
@@ -161,6 +159,8 @@ document.getElementById('file-reading-button').addEventListener('click', async (
         return;
     }
     try {
+        const now = new Date();
+        let logfile_name = `log_${now.getFullYear()}_${now.getMonth()}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}_${now.getSeconds()}.txt`;
         for await (const entry of directoryHandle.values()) {
             if (entry.kind === 'file' && entry.name.endsWith('.fcs')) {
                 
@@ -168,17 +168,17 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                 const reader = new FileReader();
                 reader.onload = async function(e) {
                     let arrayBuffer = e.target.result;
-                    console.log("arrayBuffer: ", arrayBuffer); 
+                    //console.log("arrayBuffer: ", arrayBuffer); 
                     customLog("arrayBuffer: ", "finished. ");
                     
                     let buffer = Buffer.from(arrayBuffer);
                     //arrayBuffer = null //remove arrayBuffer
-                    console.log("buffer: ", buffer); 
+                    //console.log("buffer: ", buffer); 
                     customLog("buffer: ", "finished. ");
                     
                     let fcs = new FCS({ dataFormat: 'asNumber', eventsToRead: -1}, buffer);
                     //let fcs = new FCS(arrayBuffer);
-                    buffer = null //remove buffer
+                    ///buffer = null //remove buffer
                     console.log("fcs: ", fcs); 
 
                     // fcsColumnNames
@@ -200,8 +200,8 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                     // fcsArray
                     fcsArray = fcs.dataAsNumbers; 
                     //fcs = null; //remove fcs
-                    console.log("fcsArray: ", fcsArray);
-                    console.log("Column Names: ", fcsColumnNames);
+                    //console.log("fcsArray: ", fcsArray);
+                    //console.log("Column Names: ", fcsColumnNames);
                     customLog("fcsArray: ", "finished.");
                     customLog('Column Names:', fcsColumnNames);
 
@@ -239,23 +239,20 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                         newText[`$P${i}E`] = '0,0'; //Amplification type
                     }
 
-                    //test
-                    //newText = { ...fcs.text };
-                    //combinedData = fcsArray
+                    // save fcs file
                     const writer = new JSWriteFCS(fcs.header,newText,combinedData);
                     console.log("writer: ",writer)
                     let file_name = `unmixed_${entry.name}`
                     
                     await writer.writeFCS(file_name,SavedirectoryHandle);
-                    console.log(`Processed and saved: tested_${entry.name}`);
-
+                    customLog(`Processed and saved: unmixed_${entry.name}`);
+                    await save_log(logfile_name)
                 }
                 
                 reader.readAsArrayBuffer(file);
 
             }
         }
-        save_log()
     }catch (error) {
         console.error('Error processing files:', error);
         customLog('Error processing files:', error);
@@ -273,11 +270,10 @@ function filterFCSArrayByChannelNames(fcsArray, fcsColumnNames, ChannelNames) {
     return filteredFCSArray;
 }
 
-
 function unmixing(fcsArray,A_pinv) {
     let fcsArray_T = transpose(fcsArray);
-    console.log("fcsArray_T: ", fcsArray_T);
-    console.log("A_pinv: ", A_pinv);
+    //console.log("fcsArray_T: ", fcsArray_T);
+    //console.log("A_pinv: ", A_pinv);
     let unmixedMatrix = multiply(A_pinv, fcsArray_T);
     fcsArray_T = null
     unmixedMatrix = transpose(unmixedMatrix);
@@ -291,15 +287,26 @@ function customLog(...args) {
     console.log.apply(console, [logEntry]); 
 }
 
-function save_log(){
+async function save_log(logfile_name){
+    
+    console.log(logfile_name)
     const logContent = logArray.join('\n');
     const blob = new Blob([logContent], { type: 'text/plain' });
+
+
+    const newFileHandle = await SavedirectoryHandle.getFileHandle(logfile_name, { create: true });
+    const writable = await newFileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+
+    /*
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'console_log.txt';
     a.click();
     URL.revokeObjectURL(url);
+    */
 }
 
 
