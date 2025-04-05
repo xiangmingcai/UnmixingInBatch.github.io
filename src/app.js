@@ -3,7 +3,7 @@ import FCS from '../node_modules/fcs/fcs.js';
 import Plotly from '../node_modules/plotly.js-dist';
 import { pinv,multiply,transpose,abs,ceil,sign,log10,add,dotMultiply,matrix,median,subtract,exp,sqrt,max } from '../node_modules/mathjs';
 import seedrandom from '../node_modules/seedrandom';
-
+import JSWriteFCS from '../node_modules/jswritefcs/JSWriteFCS.js';
 
 let logArray = [];
 
@@ -242,94 +242,11 @@ document.getElementById('file-reading-button').addEventListener('click', async (
                     //test
                     //newText = { ...fcs.text };
                     //combinedData = fcsArray
-
-                    //test end
-
-                    // 定义保留字段列表和正则表达式
-                    const reservedFields = [
-                        '$BEGINANALYSIS', '$BEGINDATA', '$BEGINSTEXT', '$BYTEORD', '$DATATYPE', 
-                        '$ENDANALYSIS', '$ENDDATA', '$ENDSTEXT', '$MODE', '$NEXTDATA', '$PAR', 
-                        '$TOT'
-                    ];
-                    const parameterFieldsRegex = /^\$P\d+[BERSN]$/;
-
-                    const sortedText = {};
-                    Object.keys(newText).sort((a, b) => {
-                        const aIsReserved = reservedFields.includes(a) || parameterFieldsRegex.test(a);
-                        const bIsReserved = reservedFields.includes(b) || parameterFieldsRegex.test(b);
-                        // 如果a,b都是保留字段，则
-                        if (bIsReserved && aIsReserved) {
-                            if (a.startsWith('$P') && b.startsWith('$P')) {
-                                // 如果a是$PAR字段，则a排在前面
-                                if (a === '$PAR') {
-                                    return -1;
-                                }
-                                // 如果b是$PAR字段，则b排在前面
-                                if (b === '$PAR') {
-                                    return 1;
-                                }
-                                // 如果都是Pn,则按数字大小排序
-                                if (1) {
-                                    // 提取参数字段中的数字部分
-                                    const aNumber = parseInt(a.match(/\$P(\d+)/)[1], 10);
-                                    const bNumber = parseInt(b.match(/\$P(\d+)/)[1], 10);
-                                    // 如果数字部分相同，按字母顺序排序
-                                    if (aNumber === bNumber) {
-                                        return a.localeCompare(b);
-                                    }
-                                    // 按数字大小排序
-                                    return aNumber - bNumber;
-                                }
-                            }
-                        }
-
-                        // 如果a和b都是保留字段
-                        if (aIsReserved && bIsReserved) {
-                            // 如果a和b都是参数字段
-                            if (a.startsWith('$P') && b.startsWith('$P')) {
-                                // 提取参数字段中的数字部分
-                                const aNumber = parseInt(a.match(/\$P(\d+)/)[1], 10);
-                                const bNumber = parseInt(b.match(/\$P(\d+)/)[1], 10);
-
-                                // 按数字大小排序
-                                return aNumber - bNumber;
-                            }
-                            
-                            // 按字母顺序排序
-                            return a.localeCompare(b);
-                        }
-                        // 如果a是保留字段且b不是，则a排在前面
-                        if (aIsReserved && !bIsReserved) {
-                            return -1;
-                        }
-                        // 如果b是保留字段且a不是，则b排在前面
-                        if (bIsReserved && !aIsReserved) {
-                            return 1;
-                        }
-                        // 如果a是普通字段且b是#开头的字段，则a排在前面
-                        if (!a.startsWith('#') && b.startsWith('#')) {
-                            return -1;
-                        }
-                        // 如果b是普通字段且a是#开头的字段，则b排在前面
-                        if (!b.startsWith('#') && a.startsWith('#')) {
-                            return 1;
-                        }
-                        
-                        // 否则按字母顺序排序
-                        return a.localeCompare(b);
-                    }).forEach(key => {
-                        sortedText[key] = newText[key];
-                    });
-                    
-                    // create new fcs file
-                    let newFCSData = new FCS();
-                    newFCSData.dataAsNumbers = combinedData
-                    newFCSData.analysis = {}
-                    newFCSData.text = sortedText
-                    console.log("newFCSData: ",newFCSData);
+                    const writer = new JSWriteFCS(fcs.header,newText,combinedData);
+                    console.log("writer: ",writer)
                     let file_name = `unmixed_${entry.name}`
-                    writeFCSFile(newFCSData, SavedirectoryHandle,file_name)
-
+                    
+                    await writer.writeFCS(file_name,SavedirectoryHandle);
                     console.log(`Processed and saved: tested_${entry.name}`);
 
                 }
@@ -346,136 +263,6 @@ document.getElementById('file-reading-button').addEventListener('click', async (
 
 });
 
-
-async function writeFCSFile(fcsData, SavedirectoryHandle,file_name) {
-    //demo
-    // 示例HEADER段
-    //const header = 'FCS3.1    256    512    1024'; 
-    // 示例TEXT段
-    //const text = '$BEGINANALYSIS 512\n$BEGINDATA 1024\n$BYTEORD 1,2,3,4\n$DATATYPE I\n$MODE L\n$PAR 2\n$TOT 1000\n$P1B 16\n$P1N FSC\n$P2B 16\n$P2N SSC'; 
-    // 示例二维数组数据段
-    //const my2DArray = [
-    //    [1, 2, 3],
-    //    [4, 5, 6],
-    //    [7, 8, 9]
-    //]; 
-
-    // 将二维数组转换为二进制数据
-    let data = fcsData.dataAsNumbers
-    let dataBlob = convert2DArrayToBinary(data);
-    let totalDataLength = dataBlob.byteLength
-    console.log(`总字节长度: ${totalDataLength}`);
-   
-    // create updated header
-    let formated_text = formatTextSegment(fcsData)
-    let updated_head = calculateHeader(formated_text,totalDataLength)
-    //update header in fcsData
-    fcsData.header = updated_head
-    let formated_head = formateHeader(updated_head)
-    //update header info in text
-    let header0string = formated_head
-    console.log("header0string before: ",header0string);
-    header0string = header0string.replace(/ /g, '0');
-    console.log("header0string after: ",header0string);
-    fcsData.text.$BEGINANALYSIS = "0000" + header0string.slice(42, 50);
-    fcsData.text.$BEGINDATA = "0000" + header0string.slice(26, 34);
-    fcsData.text.$BEGINSTEXT = "0000" + header0string.slice(10, 18);
-    fcsData.text.$ENDANALYSIS = "0000" + header0string.slice(50, 58);
-    fcsData.text.$ENDDATA = "0000" + header0string.slice(34, 42);
-    fcsData.text.$ENDSTEXT = "0000" + header0string.slice(18, 26);
-
-    //update formated_text
-    formated_text = formatTextSegment(fcsData)
-    // 将TEXT段转换为Buffer
-    let textBlob = Buffer.from(formated_text);
-
-    // 将HEADER段转换为Buffer
-    updated_head = calculateHeader(formated_text,totalDataLength)
-    fcsData.header = updated_head
-    formated_head = formateHeader(updated_head)
-    let headerBlob = Buffer.from(formated_head);
-
-    // 创建一个缓冲区来存储整个文件内容
-    //const fileBuffer = Buffer.concat([headerBuffer, textBuffer, dataBuffer]);
-    let fileBlob = new Blob([headerBlob, textBlob, dataBlob], { type: 'application/octet-stream' });
-
-
-    // 将缓冲区写入文件
-    // save new fcs file
-    const newFileHandle = await SavedirectoryHandle.getFileHandle(file_name, { create: true });
-    const writable = await newFileHandle.createWritable();
-    await writable.write(fileBlob);
-    await writable.close();
-
-    
-    
-}
-
-function convert2DArrayToBinary(data) {
-    // 创建一个缓冲区数组来存储二进制数据
-    let bufferArray = [];
-    let totalLength = 0;
-    // 遍历二维数组，将每个元素转换为二进制数据并添加到缓冲区数组
-    data.forEach(row => {
-        row.forEach(value => {
-            let valueBuffer = new ArrayBuffer(4); // 分配4个字节（32位）来存储浮点数
-            let view = new DataView(valueBuffer);
-            view.setFloat32(0, value, true); // 以小端字节序写入浮点数
-            bufferArray.push(new Uint8Array(valueBuffer));
-            totalLength += valueBuffer.byteLength; // 累加每个缓冲区的字节长度
-        });
-    });
-
-    // 合并缓冲区数组
-    const binaryData = Buffer.concat(bufferArray);
-    
-    return binaryData;
-}
-
-
-function formatTextSegment(fcsData) {
-    let text = fcsData.text
-    let formattedText = '';
-
-    for (let key in text) {
-        if (text.hasOwnProperty(key)) {
-            formattedText += `*${key}*${text[key]}`;
-        }
-    }
-    //formattedText += `*`;
-    return formattedText;
-}
-
-function calculateHeader(formattedText,totalDataLength) {
-    const header = {};
-
-    header.FCSVersion = 'FCS3.1    ';
-
-    const textStart = 58; // usually 
-    const textEnd = textStart + formattedText.length - 1;
-    //const textEnd = textStart + formattedText.length;
-
-    const dataStart = textEnd + 1;
-    const dataEnd = dataStart + totalDataLength - 1; // 4个字节（32位）
-    //const dataEnd = dataStart + totalDataLength; 
-
-    // header
-    header.beginText = textStart.toString().padStart(8, ' ');
-    header.endText = textEnd.toString().padStart(8, ' ');
-    header.beginData = dataStart.toString().padStart(8, ' ');
-    header.endData = dataEnd.toString().padStart(8, ' ');
-
-    // Analysis
-    header.beginAnalysis = '0'.padStart(8, ' ');
-    header.endAnalysis = '0'.padStart(8, ' ');
-
-    return header;
-}
-
-
-function formateHeader(header){
-    return `${header.FCSVersion}${header.beginText}${header.endText}${header.beginData}${header.endData}${header.beginAnalysis}${header.endAnalysis}`
-}
 function filterFCSArrayByChannelNames(fcsArray, fcsColumnNames, ChannelNames) {
     // Create an array to store the indices of the columns to keep
     const indicesToKeep = ChannelNames.map(channel => fcsColumnNames.indexOf(channel)).filter(index => index !== -1);

@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "fcs": "^0.1.3",
+    "jswritefcs": "github:xiangmingcai/JSWriteFCS",
     "mathjs": "^14.4.0",
     "plotly.js-dist": "^3.0.1",
     "process": "^0.11.10",
