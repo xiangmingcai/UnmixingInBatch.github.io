@@ -10,6 +10,11 @@ If you find it helpful, please remember to cite us in your work.
 
 Enjoy! 😉
 
-link to the webpage: [UMO](https://xiangmingcai.github.io/UnmixingInBatch.github.io/)
+link to the webpage: [UIB](https://xiangmingcai.github.io/UnmixingInBatch.github.io/)
 
 Note: UIB is a static website, meaning everything you do with UMO is 100% local.** No data is sent out, and we do not store any user information.
+
+- **author  : Xiangming Cai**
+- **email   : x.cai@amsterdamumc.nl**
+- **time    : 2025/4/6**
+- **version: v1.0**
