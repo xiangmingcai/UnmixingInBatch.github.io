@@ -1,6 +1,6 @@
 # UnmixingInBatch.github.io
 
-This webtool, UIB, is designed to do the **unmixing in batch** for flow cytometry analysis. 
+This webtool, UIB, as a part of [Unmixing Matrix Online web Toolkit for flow cytometry (UMOT)](https://github.com/xiangmingcai/UMOT), is designed to do the **unmixing in batch** for flow cytometry analysis. 
 An unmixing matrix csv file is needed. If you do not have one, you may create one with the [UMG](https://github.com/xiangmingcai/UnmixingMtxGenerator.github.io)
 
 For hardware requirement, a 16 GB RAM or higher is recommended.
