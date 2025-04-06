@@ -6,7 +6,7 @@ An unmixing matrix csv file is needed. If you do not have one, you may create on
 For hardware requirement, a 16 GB RAM or higher is recommended.
 Be careful, big fcs file (>100 Mb) may crush the website.
 
-If you find it helpful, please remember to cite us in your work.
+If you find it helpful, please remember to cite the [UMOT project](https://github.com/xiangmingcai/UMOT) in your work.
 
 Enjoy! 😉
 
