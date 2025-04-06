@@ -14,7 +14,20 @@ link to the webpage: [UIB](https://xiangmingcai.github.io/UnmixingInBatch.github
 
 Note: UIB is a static website, meaning everything you do with UMO is 100% local.** No data is sent out, and we do not store any user information.
 
-- **author  : Xiangming Cai**
-- **email   : x.cai@amsterdamumc.nl**
-- **time    : 2025/4/6**
-- **version: v1.0**
+<br>
+
+- author : Xiangming Cai; Sara Garcia Garcia; Juan J. Garcia Vallejo
+
+- email : x.cai@amsterdamumc.nl
+
+- time : 2025/4/6
+
+- version: v1.0
+
+Links to: 
+
+[Xiangming Cai](https://www.linkedin.com/in/xiangming-cai-7a95a1258/)
+
+[Group Juan](https://immunologyamsterdam.org/2020/08/10/juan-j-garcia-vallejo/)
+
+[Core facility](https://vumc.nl/research/overzicht/molecular-cell-biology-immunology-research/mcbi-technology-center/o2flow-facility-mcbi.htm)
