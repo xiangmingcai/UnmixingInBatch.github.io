@@ -4,7 +4,9 @@ This webtool, UIB, as a part of [Unmixing Matrix Online web Toolkit for flow cyt
 An unmixing matrix csv file is needed. If you do not have one, you may create one with the [UMG](https://github.com/xiangmingcai/UnmixingMtxGenerator.github.io)
 
 For hardware requirement, a 16 GB RAM or higher is recommended.
-Be careful, big fcs file (>100 Mb) may crush the website.
+
+Although we provide BIU as an unmixing tool, browser environment is not really an ideal choice for such highly calculation intensive work. If you have big fcs file (>100 Mb), you could also do unmixing in [OMIQ](https://help.omiq.ai/hc/en-us/articles/28937155541908-Create-and-Apply-a-Spectral-Unmixing-Matrix) or [FCS Express](https://denovosoftware.com/full-access/features/spectral-unmixing/). 
+
 
 If you find it helpful, please remember to cite the [UMOT project](https://github.com/xiangmingcai/UMOT) in your work.
 
