@@ -1,8 +1,6 @@
 
 import FCS from '../node_modules/fcs/fcs.js';
-import Plotly from '../node_modules/plotly.js-dist';
-import { pinv,multiply,transpose,abs,ceil,sign,log10,add,dotMultiply,matrix,median,subtract,exp,sqrt,max, string } from '../node_modules/mathjs';
-import seedrandom from '../node_modules/seedrandom';
+import { pinv,multiply,transpose,ceil,max} from '../node_modules/mathjs';
 import JSWriteFCS from '../node_modules/jswritefcs/JSWriteFCS.js';
 
 let logArray = [];
@@ -16,9 +14,9 @@ let A_Array;
 let A_pinv;
 let PSValueList;
 
-let SCCfileHandle;
 let fcsArray = [];
 let fcsColumnNames = [];
+let logfile_name;
 
 
 // Select fcs Data folder
@@ -51,6 +49,8 @@ document.getElementById('select-save-folder').addEventListener('click', async ()
         // Display the folder name
         document.getElementById('save-folder-name').textContent = `Selected Folder: ${folderName}`;
         
+        // Request permission
+        await SavedirectoryHandle.requestPermission({ mode: 'readwrite' });
     } catch (error) {
         console.error('Error selecting folder:', error);
         customLog('Error selecting folder:', error);
@@ -160,105 +160,152 @@ document.getElementById('file-reading-button').addEventListener('click', async (
     }
     try {
         const now = new Date();
-        let logfile_name = `log_${now.getFullYear()}_${now.getMonth()}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}_${now.getSeconds()}.txt`;
-        for await (const entry of directoryHandle.values()) {
-            if (entry.kind === 'file' && entry.name.endsWith('.fcs')) {
-                
-                const file = await entry.getFile();
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    let arrayBuffer = e.target.result;
-                    //console.log("arrayBuffer: ", arrayBuffer); 
-                    customLog("arrayBuffer: ", "finished. ");
-                    
-                    let buffer = Buffer.from(arrayBuffer);
-                    //arrayBuffer = null //remove arrayBuffer
-                    //console.log("buffer: ", buffer); 
-                    customLog("buffer: ", "finished. ");
-                    
-                    let fcs = new FCS({ dataFormat: 'asNumber', eventsToRead: -1}, buffer);
-                    //let fcs = new FCS(arrayBuffer);
-                    ///buffer = null //remove buffer
-                    console.log("fcs: ", fcs); 
-
-                    // fcsColumnNames
-                    const text = fcs.text;
-                    let newText = { ...fcs.text };//for update
-                    let columnNames = [];
-                    //columnNames are stored in `$P${i}S` in Xenith
-                    for (let i = 1; text[`$P${i}S`]; i++) {
-                        columnNames.push(text[`$P${i}S`]);
-                    }
-                    //columnNames are stored in `$P${i}N` in Aurora
-                    if (columnNames.length == 0) {
-                        for (let i = 1; text[`$P${i}N`]; i++) {
-                            columnNames.push(text[`$P${i}N`]);
-                        }
-                    }
-                    fcsColumnNames = columnNames;
-                    
-                    // fcsArray
-                    fcsArray = fcs.dataAsNumbers; 
-                    //fcs = null; //remove fcs
-                    //console.log("fcsArray: ", fcsArray);
-                    //console.log("Column Names: ", fcsColumnNames);
-                    customLog("fcsArray: ", "finished.");
-                    customLog('Column Names:', fcsColumnNames);
-
-                    // check if all ChannelNames is in fcsColumnNames
-                    if (1) {
-                        // check if all ChannelNames is in fcsColumnNames
-                        const notInfcsColumnNames = ChannelNames.filter(channel => !fcsColumnNames.includes(channel));
-                        //reminder of check results
-                        if (notInfcsColumnNames.length > 0) {
-                            
-                            customLog(`These following channels were not found in the fcs file: ${notInfcsColumnNames.join(', ')} Please check before moving on.`);
-                            
-                            customLog(`Channels found in the fcs file: ${ChannelNames.join(', ')}`);
-                        } else {
-                        
-                            customLog('All channels in unmixing matrix are in the fcs file.');
-                        }
-                    } 
-                    //do unmixing
-                    let filteredfcsArrayforUnmix = filterFCSArrayByChannelNames(fcsArray, fcsColumnNames, ChannelNames);
-                    const unmixedData = unmixing(filteredfcsArrayforUnmix,A_pinv);
-                    
-                    const Par_range = ceil(max(unmixedData))
-                    let combinedData = fcsArray.map((row, index) => row.concat(unmixedData[index]));
-                    //update text
-                    const originalParameterCount =  fcs.meta.$PAR;
-                    filteredfcsArrayforUnmix = null
-                    const newParameterCount = originalParameterCount + unmixedData[0].length;
-                    newText['$PAR'] = newParameterCount.toString();
-                    for (let i = originalParameterCount + 1; i <= newParameterCount; i++) {
-                        newText[`$P${i}N`] = PSValueList[i - originalParameterCount - 1];
-                        newText[`$P${i}S`] = PSValueList[i - originalParameterCount - 1];
-                        newText[`$P${i}R`] = Par_range.toString(); // range of parameter
-                        newText[`$P${i}B`] = '32';  //number of bits
-                        newText[`$P${i}E`] = '0,0'; //Amplification type
-                    }
-
-                    // save fcs file
-                    const writer = new JSWriteFCS(fcs.header,newText,combinedData);
-                    console.log("writer: ",writer)
-                    let file_name = `unmixed_${entry.name}`
-                    
-                    await writer.writeFCS(file_name,SavedirectoryHandle);
-                    customLog(`Processed and saved: unmixed_${entry.name}`);
-                    await save_log(logfile_name)
-                }
-                
-                reader.readAsArrayBuffer(file);
-
-            }
+        logfile_name = `log_${now.getFullYear()}_${now.getMonth()}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}_${now.getSeconds()}.txt`;
+        
+        let totalFiles = 0;
+        let processedFiles = 0;
+        const fileHandle_all = [];
+        // iterate files
+        for await (const fileHandle of directoryHandle.values()) {
+            totalFiles++;
+            fileHandle_all.push(fileHandle);
         }
+        console.log("totalFiles: ",totalFiles);
+        
+        for await (const fileHandle of fileHandle_all) {
+            //update progress bar
+            processedFiles ++;
+            update_progress(processedFiles,totalFiles);
+            //process file
+            await processFile(fileHandle);
+            customLog("fileHandle: ",fileHandle);
+            //save log
+            save_log(logfile_name);
+            //await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        document.getElementById('progress-text').textContent = 'Processing complete!';
+
     }catch (error) {
         console.error('Error processing files:', error);
         customLog('Error processing files:', error);
     }
 
 });
+
+
+async function processFile(fileHandle) {
+    if (fileHandle.kind === 'file' && fileHandle.name.endsWith('.fcs')) {
+
+        const file = await fileHandle.getFile();
+        let file_name = `unmixed_${fileHandle.name}`;
+        //write unmixed fcs file
+        const writer = await readFileAsArrayBuffer(file);
+        await writer.writeFCS(file_name,SavedirectoryHandle);
+
+        customLog(`Processed and saved: unmixed_${fileHandle.name}`);
+        
+    }
+}
+
+function readFileAsArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            let arrayBuffer = e.target.result;
+            //console.log("arrayBuffer: ", arrayBuffer); 
+            customLog("arrayBuffer: ", "finished. ");
+
+            let buffer = Buffer.from(arrayBuffer);
+            arrayBuffer = null //remove arrayBuffer
+            //console.log("buffer: ", buffer); 
+            customLog("buffer: ", "finished. ");
+
+            let fcs = new FCS({ dataFormat: 'asNumber', eventsToRead: -1}, buffer);
+            //let fcs = new FCS(arrayBuffer);
+            buffer = null //remove buffer
+            console.log("fcs: ", fcs); 
+
+            // fcsColumnNames
+            const text = fcs.text;
+            let newText = { ...fcs.text };//for update
+            let columnNames = [];
+            //columnNames are stored in `$P${i}S` in Xenith
+            for (let i = 1; text[`$P${i}S`]; i++) {
+                columnNames.push(text[`$P${i}S`]);
+            }
+            //columnNames are stored in `$P${i}N` in Aurora
+            if (columnNames.length == 0) {
+                for (let i = 1; text[`$P${i}N`]; i++) {
+                    columnNames.push(text[`$P${i}N`]);
+                }
+            }
+            fcsColumnNames = columnNames;
+            
+            // fcsArray
+            fcsArray = fcs.dataAsNumbers; 
+            //fcs = null; //remove fcs
+            //console.log("fcsArray: ", fcsArray);
+            //console.log("Column Names: ", fcsColumnNames);
+            customLog("fcsArray: ", "finished.");
+            customLog('Column Names:', fcsColumnNames);
+
+            // check if all ChannelNames is in fcsColumnNames
+            if (1) {
+                // check if all ChannelNames is in fcsColumnNames
+                const notInfcsColumnNames = ChannelNames.filter(channel => !fcsColumnNames.includes(channel));
+                //reminder of check results
+                if (notInfcsColumnNames.length > 0) {
+                    
+                    customLog(`These following channels were not found in the fcs file: ${notInfcsColumnNames.join(', ')} Please check before moving on.`);
+                    
+                    customLog(`Channels found in the fcs file: ${ChannelNames.join(', ')}`);
+                } else {
+                
+                    customLog('All channels in unmixing matrix are in the fcs file.');
+                }
+            } 
+            //do unmixing
+            let filteredfcsArrayforUnmix = filterFCSArrayByChannelNames(fcsArray, fcsColumnNames, ChannelNames);
+            let unmixedData = unmixing(filteredfcsArrayforUnmix,A_pinv);
+            
+            const Par_range = ceil(max(unmixedData))
+            let combinedData = fcsArray.map((row, index) => row.concat(unmixedData[index]));
+            fcsArray = [];
+
+            //update text
+            const originalParameterCount =  fcs.meta.$PAR;
+            filteredfcsArrayforUnmix = null
+            const newParameterCount = originalParameterCount + unmixedData[0].length;
+            unmixedData = null;
+            newText['$PAR'] = newParameterCount.toString();
+            for (let i = originalParameterCount + 1; i <= newParameterCount; i++) {
+                newText[`$P${i}N`] = PSValueList[i - originalParameterCount - 1];
+                newText[`$P${i}S`] = PSValueList[i - originalParameterCount - 1];
+                newText[`$P${i}R`] = Par_range.toString(); // range of parameter
+                newText[`$P${i}B`] = '32';  //number of bits
+                newText[`$P${i}E`] = '0,0'; //Amplification type
+            }
+
+            // save fcs file
+            let writer = new JSWriteFCS(fcs.header,newText,combinedData);
+            
+            resolve(writer);
+        };
+        reader.onerror = function(error) {
+            reject(error);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+
+function update_progress(processedFiles,totalFiles){
+    const progress = (processedFiles / totalFiles) * 100;
+    document.getElementById('progress-bar').value = progress;
+    document.getElementById('progress-text').textContent = `Processing ${processedFiles} of ${totalFiles} files...`;
+}
+
+
 
 function filterFCSArrayByChannelNames(fcsArray, fcsColumnNames, ChannelNames) {
     // Create an array to store the indices of the columns to keep
@@ -297,16 +344,8 @@ async function save_log(logfile_name){
     const newFileHandle = await SavedirectoryHandle.getFileHandle(logfile_name, { create: true });
     const writable = await newFileHandle.createWritable();
     await writable.write(blob);
-    await writable.close();
+    writable.close();
 
-    /*
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'console_log.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-    */
 }
 
 
